@@ -37,7 +37,8 @@ def fetch_coingecko_history(
     coin_id: str,
     days: int | str = 365,
     vs_currency: str = "usd",
-    sleep: float = 1.5,
+    sleep: float = 6.5,
+    max_retries: int = 5,
 ) -> pd.Series:
     """Daily close prices for one coin. Returns a Series indexed by UTC date.
 
@@ -45,6 +46,10 @@ def fetch_coingecko_history(
     auto-buckets the response (hourly for days <= 90, daily otherwise).
     The `interval=daily` parameter and `days=max` were locked behind a paid
     tier in 2024, so we no longer send them.
+
+    Rate limits on the free tier are ~5-15 req/min. We default to one
+    request every 6.5s (~9 req/min) and retry with exponential backoff
+    on 429, honoring any Retry-After header the server returns.
 
     If COINGECKO_API_KEY is set we use the Pro endpoint and unlock `days=max`.
     A Demo (free-tier) key in COINGECKO_DEMO_API_KEY is also supported and
@@ -55,12 +60,29 @@ def fetch_coingecko_history(
     if pro_key:
         url = f"{COINGECKO_PRO_BASE}/coins/{coin_id}/market_chart"
         headers = {"x-cg-pro-api-key": pro_key}
+        # Pro tier removes the rate-limit pain; we can be quicker
+        sleep = min(sleep, 0.6)
     else:
         url = f"{COINGECKO_BASE}/coins/{coin_id}/market_chart"
         headers = {"x-cg-demo-api-key": demo_key} if demo_key else {}
     params = {"vs_currency": vs_currency, "days": days}
-    resp = requests.get(url, params=params, headers=headers, timeout=30)
-    resp.raise_for_status()
+
+    backoff = sleep
+    for attempt in range(max_retries):
+        resp = requests.get(url, params=params, headers=headers, timeout=30)
+        if resp.status_code == 429:
+            wait = float(resp.headers.get("Retry-After", backoff))
+            wait = max(wait, backoff)
+            print(f"[{coin_id}] 429 rate-limited, sleeping {wait:.1f}s "
+                  f"(attempt {attempt + 1}/{max_retries})")
+            time.sleep(wait)
+            backoff = min(backoff * 2, 120.0)
+            continue
+        resp.raise_for_status()
+        break
+    else:
+        resp.raise_for_status()  # surface the last error
+
     prices = resp.json()["prices"]  # [[ms_ts, price], ...]
     ts = pd.to_datetime([p[0] for p in prices], unit="ms", utc=True).normalize()
     s = pd.Series([p[1] for p in prices], index=ts, name=coin_id)
