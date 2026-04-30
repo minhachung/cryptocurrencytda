@@ -13,6 +13,13 @@ The repo is structured so you can reproduce every number from `python scripts/ru
 
 ---
 
+## Where to see results
+
+- **In the README below** — committed numbers and figures (this page).
+- **CI run pages** — every push runs the synthetic pipeline and posts a metrics summary directly on the workflow run: [Actions tab](https://github.com/minhachung/cryptocurrencytda/actions/workflows/ci.yml). Click any green checkmark, scroll to "Synthetic-data results report" → step summary.
+- **Real-data run** — manually triggerable from [Actions → Real-data pipeline → Run workflow](https://github.com/minhachung/cryptocurrencytda/actions/workflows/real-data.yml). Fetches CoinGecko, runs the pipeline, posts the same markdown summary, and uploads `figures/` + `results/` as downloadable artifacts (retained 90 days).
+- **Local CSV / JSON** — `results/summary.json`, `results/in_sample_metrics.csv`, `results/walk_forward_metrics.csv`, `results/event_metrics.csv`.
+
 ## Pipeline at a glance
 
 ```
@@ -84,10 +91,21 @@ Total `H_0` squared persistence is the most robust signal *out-of-sample* — it
 
 At a fixed alarm threshold the baselines tie or beat TDA on raw hit rate, but TDA fires slightly earlier when it does fire. This is the kind of nuanced result you want from honest validation — there is no free lunch, and tuning thresholds per-signal would change the picture.
 
-Generated figures live in `figures/`:
-- `signal_comparison.png` — all six signals stacked under the benchmark price, with crash dates marked.
-- `roc_curves.png` — ROC overlay for the head-to-head comparison.
-- `tda_h1_signal.png` — the H₁ landscape signal alone vs benchmark.
+### Figures
+
+All 6 signals stacked under the benchmark price, with crash dates marked:
+
+![Signal comparison](figures/signal_comparison.png)
+
+ROC overlay for the head-to-head comparison:
+
+![ROC curves](figures/roc_curves.png)
+
+H₁ landscape signal alone vs benchmark price:
+
+![H1 landscape signal](figures/tda_h1_signal.png)
+
+Regenerate with `python scripts/run_pipeline.py --synthetic`.
 
 ---
 

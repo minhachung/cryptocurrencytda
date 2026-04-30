@@ -13,8 +13,8 @@ data/cache/
 *.parquet
 *.feather
 
-# Generated figures (regenerable)
-figures/*.png
+# Generated figures: kept in repo so README can render them.
+# Regenerate with: python scripts/run_pipeline.py --synthetic
 figures/*.pdf
 
 # Large regenerable artifact; keep only summary + metrics CSVs
@@ -22,3 +22,8 @@ results/signals_and_label.csv
 
 # OS
 .DS_Store
+
+# Editor / agent state
+.claude/
+.vscode/
+.idea/
