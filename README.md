@@ -1,6 +1,6 @@
 # Persistent Homology of Cryptocurrency Markets
 
-[![CI](https://github.com/REPLACE_ME/cryptocurrencytda/actions/workflows/ci.yml/badge.svg)](https://github.com/REPLACE_ME/cryptocurrencytda/actions/workflows/ci.yml)
+[![CI](https://github.com/minhachung/cryptocurrencytda/actions/workflows/ci.yml/badge.svg)](https://github.com/minhachung/cryptocurrencytda/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-14%20passing-brightgreen.svg)](tests/)

@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: "cryptotda contributors"
 license: MIT
-repository-code: "https://github.com/REPLACE_ME/cryptocurrencytda"
+repository-code: "https://github.com/minhachung/cryptocurrencytda"
 keywords:
   - topological data analysis
   - persistent homology
