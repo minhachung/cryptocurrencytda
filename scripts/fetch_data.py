@@ -1,8 +1,9 @@
-"""Download daily prices for the basket from CoinGecko and cache to parquet.
+"""Download daily prices for the basket and cache to CSV.
 
 Usage:
-    python scripts/fetch_data.py            # fetch default basket, full history
-    python scripts/fetch_data.py --days 1825   # last 5 years only
+    python scripts/fetch_data.py                          # Yahoo, 5 years
+    python scripts/fetch_data.py --days max               # Yahoo, full history
+    python scripts/fetch_data.py --source coingecko       # CoinGecko (rate-limited)
 """
 from __future__ import annotations
 
@@ -14,15 +15,18 @@ from cryptotda.data import DEFAULT_BASKET, fetch_basket
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--days", default="365",
-                   help='Integer number of days (free tier <=365), or "max" with a Pro API key '
-                        '(set COINGECKO_API_KEY env var)')
+    p.add_argument("--source", choices=("yahoo", "coingecko"), default="yahoo",
+                   help="data backend (default: yahoo, no key required)")
+    p.add_argument("--days", default="1825",
+                   help='Integer days, or "max". Coingecko free tier <=365.')
     p.add_argument("--out", default="data/prices.csv")
     p.add_argument("--cache-dir", default="data/cache")
     args = p.parse_args()
 
     days = args.days if args.days == "max" else int(args.days)
-    df = fetch_basket(DEFAULT_BASKET, days=days, cache_dir=Path(args.cache_dir))
+    df = fetch_basket(
+        DEFAULT_BASKET, days=days, cache_dir=Path(args.cache_dir), source=args.source,
+    )
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out)

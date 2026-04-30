@@ -18,6 +18,7 @@ dependencies = [
     "persim>=0.3.1",
     "requests>=2.31",
     "tqdm>=4.65",
+    "yfinance>=0.2.40",
 ]
 
 [project.optional-dependencies]

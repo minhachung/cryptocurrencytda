@@ -1,13 +1,13 @@
 """Data loading.
 
-Two backends:
-    1. CoinGecko public API (no key required, rate-limited).
-    2. Synthetic generator with embedded crash regimes — used in CI and as a
+Three backends:
+    1. yfinance (Yahoo Finance) -- the default. No API key, no rate limits,
+       and multi-year daily crypto history is freely available. This is what
+       you want for serious validation against historical crashes.
+    2. CoinGecko public API -- secondary, useful for coins not on Yahoo. Rate-
+       limited to ~5-15 req/min on the free tier; we retry on 429.
+    3. Synthetic generator with embedded crash regimes -- used in CI and as a
        fully-reproducible fallback when the network is unavailable.
-
-The synthetic generator is calibrated so that the validation pipeline produces
-non-trivial results even without any real data, which matters for grading and
-for catching regressions in the TDA code path.
 """
 
 from __future__ import annotations
@@ -31,6 +31,25 @@ DEFAULT_BASKET = [
     "cardano", "stellar", "monero", "dash", "ethereum-classic",
     "tezos", "eos", "tron", "neo", "zcash",
 ]
+
+# Mapping from CoinGecko coin IDs to Yahoo Finance tickers.
+COINGECKO_TO_YAHOO = {
+    "bitcoin": "BTC-USD",
+    "ethereum": "ETH-USD",
+    "ripple": "XRP-USD",
+    "litecoin": "LTC-USD",
+    "bitcoin-cash": "BCH-USD",
+    "cardano": "ADA-USD",
+    "stellar": "XLM-USD",
+    "monero": "XMR-USD",
+    "dash": "DASH-USD",
+    "ethereum-classic": "ETC-USD",
+    "tezos": "XTZ-USD",
+    "eos": "EOS-USD",
+    "tron": "TRX-USD",
+    "neo": "NEO-USD",
+    "zcash": "ZEC-USD",
+}
 
 
 def fetch_coingecko_history(
@@ -92,22 +111,68 @@ def fetch_coingecko_history(
     return s
 
 
+def fetch_yahoo_history(
+    coin_id: str,
+    days: int | str = 1825,
+    vs_currency: str = "usd",
+) -> pd.Series:
+    """Daily close prices for one coin via Yahoo Finance (yfinance)."""
+    import yfinance as yf
+    ticker = COINGECKO_TO_YAHOO.get(coin_id)
+    if ticker is None:
+        raise ValueError(
+            f"No Yahoo ticker known for coin_id={coin_id!r}. "
+            f"Add it to COINGECKO_TO_YAHOO or use the 'coingecko' source."
+        )
+    if days == "max":
+        period = "max"
+    else:
+        # yfinance accepts period like "5y", "10y" -- convert from days.
+        years = max(1, int(days) // 365)
+        period = f"{years}y" if years <= 10 else "max"
+    df = yf.download(
+        ticker, period=period, interval="1d",
+        progress=False, auto_adjust=True, threads=False,
+    )
+    if df.empty:
+        raise RuntimeError(f"yfinance returned empty data for {ticker}")
+    # yfinance can return MultiIndex columns when given a single ticker
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    s = df["Close"].rename(coin_id)
+    s.index = pd.to_datetime(s.index).tz_localize(None).normalize()
+    s = s.groupby(s.index).last()
+    return s
+
+
 def fetch_basket(
     coins: Iterable[str] = DEFAULT_BASKET,
-    days: int | str = "max",
+    days: int | str = 1825,
     cache_dir: Path | None = None,
+    source: str = "yahoo",
 ) -> pd.DataFrame:
-    """Fetch a basket of coins, return aligned DataFrame of close prices."""
+    """Fetch a basket of coins, return aligned DataFrame of close prices.
+
+    Parameters
+    ----------
+    coins : iterable of CoinGecko coin IDs (also used as the column names).
+    days : integer number of days, or "max" (Pro key required for CoinGecko).
+    cache_dir : if set, per-coin CSVs are read/written here so re-runs are free.
+    source : "yahoo" (default, no key, multi-year) or "coingecko" (rate-limited).
+    """
+    if source not in ("yahoo", "coingecko"):
+        raise ValueError(f"unknown source {source!r}; use 'yahoo' or 'coingecko'")
+    fetch_one = fetch_yahoo_history if source == "yahoo" else fetch_coingecko_history
     series = []
     for c in coins:
         if cache_dir is not None:
             cache_dir = Path(cache_dir)
             cache_dir.mkdir(parents=True, exist_ok=True)
-            cache_path = cache_dir / f"{c}.csv"
+            cache_path = cache_dir / f"{source}_{c}.csv"
             if cache_path.exists():
                 series.append(pd.read_csv(cache_path, index_col=0, parse_dates=True).iloc[:, 0])
                 continue
-        s = fetch_coingecko_history(c, days=days)
+        s = fetch_one(c, days=days)
         if cache_dir is not None:
             s.to_frame().to_csv(cache_path)
         series.append(s)

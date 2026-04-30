@@ -9,10 +9,18 @@ name: Real-data pipeline (manual)
 on:
   workflow_dispatch:
     inputs:
-      days:
-        description: 'Days of history to fetch. Free CoinGecko tier allows up to 365; longer ranges need a Pro API key set as the COINGECKO_API_KEY repo secret.'
+      source:
+        description: 'Data source'
         required: true
-        default: "365"
+        type: choice
+        options:
+          - yahoo
+          - coingecko
+        default: yahoo
+      days:
+        description: 'Days of history (or "max"). CoinGecko free tier <=365.'
+        required: true
+        default: "1825"
       window:
         description: 'Sliding window length in days'
         required: true
@@ -36,14 +44,19 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      - name: Fetch CoinGecko prices
+      - name: Fetch prices
         env:
-          # Optional: set as repo secrets to unlock longer history / higher rate limits.
-          # Free public tier works without either of these for days <= 365.
+          # Only used when source=coingecko. Optional: set as repo secrets to
+          # unlock longer history / higher rate limits.
           COINGECKO_API_KEY: ${{ secrets.COINGECKO_API_KEY }}
           COINGECKO_DEMO_API_KEY: ${{ secrets.COINGECKO_DEMO_API_KEY }}
         run: |
-          python scripts/fetch_data.py --days "${{ github.event.inputs.days }}" --out data/prices.csv
+          python scripts/fetch_data.py \
+            --source "${{ github.event.inputs.source }}" \
+            --days "${{ github.event.inputs.days }}" \
+            --out data/prices.csv
+          echo "Fetched price file:"
+          python -c "import pandas as pd; df = pd.read_csv('data/prices.csv', index_col=0, parse_dates=True); print(df.shape, df.index.min().date(), '->', df.index.max().date()); print(df.tail())"
       - name: Run pipeline on real data
         run: |
           python scripts/run_pipeline.py \
