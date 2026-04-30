@@ -1,0 +1,24 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+
+# Data and outputs (keep small artifacts under results/)
+data/raw/
+data/cache/
+*.parquet
+*.feather
+
+# Generated figures (regenerable)
+figures/*.png
+figures/*.pdf
+
+# Large regenerable artifact; keep only summary + metrics CSVs
+results/signals_and_label.csv
+
+# OS
+.DS_Store

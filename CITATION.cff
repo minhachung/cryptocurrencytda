@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: "cryptotda: Persistent homology of cryptocurrency markets"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "cryptotda contributors"
+license: MIT
+repository-code: "https://github.com/REPLACE_ME/cryptocurrencytda"
+keywords:
+  - topological data analysis
+  - persistent homology
+  - cryptocurrency
+  - early warning systems
+  - financial econometrics
+references:
+  - type: article
+    authors:
+      - family-names: Gidea
+        given-names: Marian
+      - family-names: Katz
+        given-names: Yuri
+    title: "Topological data analysis of financial time series: Landscapes of crashes"
+    journal: "Physica A: Statistical Mechanics and its Applications"
+    year: 2018
+    volume: 491
+    pages: "820-834"
