@@ -14,7 +14,9 @@ from cryptotda.data import DEFAULT_BASKET, fetch_basket
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--days", default="max", help='"max" or integer number of days')
+    p.add_argument("--days", default="365",
+                   help='Integer number of days (free tier <=365), or "max" with a Pro API key '
+                        '(set COINGECKO_API_KEY env var)')
     p.add_argument("--out", default="data/prices.csv")
     p.add_argument("--cache-dir", default="data/cache")
     args = p.parse_args()

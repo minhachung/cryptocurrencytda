@@ -12,6 +12,7 @@ for catching regressions in the TDA code path.
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from typing import Iterable
@@ -21,6 +22,7 @@ import pandas as pd
 import requests
 
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
+COINGECKO_PRO_BASE = "https://pro-api.coingecko.com/api/v3"
 
 # A reasonable basket: large caps with long history. The point cloud lives in
 # R^N, so N should be moderate -- 10-30 is plenty for H_0/H_1 to be informative.
@@ -33,19 +35,37 @@ DEFAULT_BASKET = [
 
 def fetch_coingecko_history(
     coin_id: str,
-    days: int | str = "max",
+    days: int | str = 365,
     vs_currency: str = "usd",
     sleep: float = 1.5,
 ) -> pd.Series:
-    """Daily close prices for one coin. Returns a Series indexed by UTC date."""
-    url = f"{COINGECKO_BASE}/coins/{coin_id}/market_chart"
-    params = {"vs_currency": vs_currency, "days": days, "interval": "daily"}
-    resp = requests.get(url, params=params, timeout=30)
+    """Daily close prices for one coin. Returns a Series indexed by UTC date.
+
+    The free public CoinGecko API (no key) accepts `days` up to 365 and
+    auto-buckets the response (hourly for days <= 90, daily otherwise).
+    The `interval=daily` parameter and `days=max` were locked behind a paid
+    tier in 2024, so we no longer send them.
+
+    If COINGECKO_API_KEY is set we use the Pro endpoint and unlock `days=max`.
+    A Demo (free-tier) key in COINGECKO_DEMO_API_KEY is also supported and
+    sent on the public endpoint via the x-cg-demo-api-key header.
+    """
+    pro_key = os.environ.get("COINGECKO_API_KEY")
+    demo_key = os.environ.get("COINGECKO_DEMO_API_KEY")
+    if pro_key:
+        url = f"{COINGECKO_PRO_BASE}/coins/{coin_id}/market_chart"
+        headers = {"x-cg-pro-api-key": pro_key}
+    else:
+        url = f"{COINGECKO_BASE}/coins/{coin_id}/market_chart"
+        headers = {"x-cg-demo-api-key": demo_key} if demo_key else {}
+    params = {"vs_currency": vs_currency, "days": days}
+    resp = requests.get(url, params=params, headers=headers, timeout=30)
     resp.raise_for_status()
     prices = resp.json()["prices"]  # [[ms_ts, price], ...]
     ts = pd.to_datetime([p[0] for p in prices], unit="ms", utc=True).normalize()
     s = pd.Series([p[1] for p in prices], index=ts, name=coin_id)
-    s = s[~s.index.duplicated(keep="last")]
+    # Multiple intraday samples on free tier: keep last per day (UTC close)
+    s = s.groupby(s.index).last()
     time.sleep(sleep)  # be polite to the public endpoint
     return s
 
